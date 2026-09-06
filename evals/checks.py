@@ -240,10 +240,16 @@ def stale_values(prev, cur):
 
 
 def check_revision(items, cur):
-    """반영 검증. items: [{"old": 문자열, "new": 문자열 또는 ""}]"""
+    """반영 검증. items: [{"old": 문자열, "new": 문자열 또는 ""}]
+
+    레드팀 리포트(judges.md)는 같은 쌍을 "fix" 아래에 두므로 그 형태도 받는다.
+    """
     out = []
     lines = cur.splitlines()
     for it in items:
+        it = it.get('fix', it)
+        if not it.get('old'):
+            continue
         where = [i for i, l in enumerate(lines, 1) if it['old'] in l]
         if where:
             out.append(('R', where[0], '미반영: 옛 표현 잔존 %s행 %s' % (where, it['old'][:30])))
