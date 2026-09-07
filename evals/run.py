@@ -6,6 +6,7 @@ python3 evals/run.py              양방향 검증: 정상본 오탐 0, 주입�
 python3 evals/run.py check draft.md ledger.md
 python3 evals/run.py diff prev.md cur.md
 python3 evals/run.py verify report.json cur.md      반영 검증
+python3 evals/run.py redteam draft.md ledger.md a.json b.json c.json > redteam.json
 python3 evals/run.py prose draft.md                  korean-prose 문체 검사(경고)
 """
 import glob
@@ -74,6 +75,31 @@ def golden():
     return ok
 
 
+def redteam(draft_path, ledger_path, judge_paths):
+    """기계 판정과 판정 3인의 출력을 레드팀 리포트 하나로 합친다. judges.md 참고.
+
+    같은 (code, line)은 한 건으로 본다. 반영 검증에 쓸 fix가 있는 쪽을 남긴다.
+    """
+    lines = read(draft_path).splitlines()
+    items = []
+    for n, (code, ln, msg) in enumerate(checks.check(read(draft_path), read(ledger_path)), 1):
+        items.append({
+            'id': 'machine-%d' % n, 'judge': 'machine', 'code': code,
+            'severity': '미판정', 'line': ln,
+            'anchor': lines[ln - 1].strip() if 0 < ln <= len(lines) else '',
+            'claim': msg, 'fix': {'old': '', 'new': ''},
+        })
+    for p in judge_paths:
+        items += json.load(io.open(p, encoding='utf-8')).get('findings', [])
+
+    out = {}
+    for it in items:
+        key = (it.get('code'), it.get('line'))
+        if key not in out or not out[key].get('fix', {}).get('old'):
+            out[key] = it
+    return sorted(out.values(), key=lambda i: (i.get('line') or 0, i.get('code') or ''))
+
+
 def prose(path):
     r = subprocess.run([sys.executable, os.path.join(HERE, 'prose.py'), path],
                        capture_output=True, text=True)
@@ -94,6 +120,10 @@ def main(argv):
         found = checks.stale_values(read(argv[1]), read(argv[2]))
     elif cmd == 'verify':
         found = checks.check_revision(json.load(io.open(argv[1], encoding='utf-8')), read(argv[2]))
+    elif cmd == 'redteam':
+        found = redteam(argv[1], argv[2], argv[3:])
+        print(json.dumps(found, ensure_ascii=False, indent=2))
+        return 0
     elif cmd == 'prose':
         prose(argv[1])
         return 0
