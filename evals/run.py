@@ -116,6 +116,13 @@ def main(argv):
     cmd = argv[0]
     if cmd == 'check':
         found = checks.check(read(argv[1]), read(argv[2]))
+        # 판정 순서(착수 보고서 §2-3): 규약 위반이 있으면 뒤 단계를 돌리지 않는다.
+        # 원장 마커가 어긋난 문서에서 D1~D8 결과는 믿을 수 없다.
+        c0 = [f for f in found if f[0] == 'C0']
+        if c0:
+            show(c0)
+            print('규약 위반 %d건. 이것부터 고친 뒤 다시 돌린다(evals/contract.md).' % len(c0))
+            return 1
     elif cmd == 'diff':
         found = checks.stale_values(read(argv[1]), read(argv[2]))
     elif cmd == 'verify':
